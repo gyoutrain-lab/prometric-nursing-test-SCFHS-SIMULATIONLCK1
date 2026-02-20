@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SCFHS Prometric CBT Exam</title>
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #f4f6f8;
+  margin: 0;
+  padding: 0;
+}
+
+.container {
+  max-width: 900px;
+  margin: auto;
+  background: #fff;
+  padding: 20px;
+  margin-top: 20px;
+  border-radius: 6px;
+}
+
+h1, h2 {
+  text-align: center;
+}
+
+.hidden {
+  display: none;
+}
+
+.timer {
+  position: fixed;
+  top: 15px;
+  right: 20px;
+  background: #111;
+  color: #0f0;
+  padding: 10px 15px;
+  font-size: 18px;
+  border-radius: 5px;
+}
+
+button {
+  padding: 10px 15px;
+  margin-top: 10px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.option {
+  margin: 8px 0;
+}
+
+.rationale {
+  margin-top: 15px;
+  padding: 12px;
+  border-radius: 5px;
+}
+
+.correct {
+  background: #e7f6e7;
+  border-left: 5px solid green;
+}
+
+.incorrect {
+  background: #fdeaea;
+  border-left: 5px solid red;
+}
+</style>
+</head>
+
+<body>
+
+<div class="timer hidden" id="timer">60:00</div>
+
+<div class="container" id="registerScreen">
+<h1>SCFHS Prometric CBT</h1>
+<input type="text" id="name" placeholder="Full Name"><br><br>
+<input type="text" id="id" placeholder="ID Number"><br><br>
+<input type="email" id="email" placeholder="Email"><br><br>
+
+<input type="text" id="providerCode" placeholder="Provider Approval Code (if re-opening)">
+<br><br>
+
+<button onclick="register()">Register & Start</button>
+</div>
+
+<div class="container hidden" id="examScreen">
+<h2 id="questionText"></h2>
+<div id="options"></div>
+<button onclick="submitAnswer()">Submit</button>
+<div id="rationaleBox"></div>
+<button class="hidden" id="nextBtn" onclick="nextQuestion()">Next</button>
+</div>
+
+<div class="container hidden" id="endScreen">
+<h2>Exam Completed</h2>
+<p>Your attempt is now locked.</p>
+<p>To re-open, re-register with provider approval.</p>
+</div>
+
+<script>
+const PROVIDER_UNLOCK_CODE = "GYOUTRAIN-APPROVED";
+const EXAM_DURATION = 60 * 60;
+
+let timerInterval;
+let timeLeft = EXAM_DURATION;
+let currentQuestion = 0;
+let locked = localStorage.getItem("examLocked");
+
+const questions = [
+{
+q: "A patient develops sudden hypotension, tachycardia, and wheezing after IV antibiotic administration. What is the priority nursing action?",
+options: [
+"Stop the infusion immediately",
+"Administer oral antihistamine",
+"Document the reaction",
+"Slow the infusion rate"
+],
+answer: 0,
+rationales: [
+"Correct. This indicates anaphylaxis. Immediate cessation of the causative agent is priority.",
+"Incorrect. Oral antihistamines are delayed and inappropriate in anaphylaxis (NCLEX trap).",
+"Incorrect. Documentation is important but NOT the priority in an acute emergency (STR trap).",
+"Incorrect. Slowing does not stop antigen exposure (misleading safety trap)."
+]
+}
+];
+
+function register() {
+if (!name.value || !id.value || !email.value) {
+alert("All fields required");
+return;
+}
+
+if (locked && providerCode.value !== PROVIDER_UNLOCK_CODE) {
+alert("Exam already used. Provider approval required.");
+return;
+}
+
+localStorage.removeItem("examLocked");
+startExam();
+}
+
+function startExam() {
+document.getElementById("registerScreen").classList.add("hidden");
+document.getElementById("examScreen").classList.remove("hidden");
+document.getElementById("timer").classList.remove("hidden");
+startTimer();
+loadQuestion();
+}
+
+function startTimer() {
+timerInterval = setInterval(() => {
+timeLeft--;
+let min = Math.floor(timeLeft / 60);
+let sec = timeLeft % 60;
+timer.innerText = `${min}:${sec.toString().padStart(2,'0')}`;
+if (timeLeft <= 0) endExam();
+}, 1000);
+}
+
+function loadQuestion() {
+let q = questions[currentQuestion];
+questionText.innerText = q.q;
+options.innerHTML = "";
+rationaleBox.innerHTML = "";
+nextBtn.classList.add("hidden");
+
+q.options.forEach((opt, i) => {
+options.innerHTML += `
+<div class="option">
+<input type="radio" name="opt" value="${i}"> ${opt}
+</div>`;
+});
+}
+
+function submitAnswer() {
+let selected = document.querySelector('input[name="opt"]:checked');
+if (!selected) return alert("Select an answer");
+
+let q = questions[currentQuestion];
+let idx = selected.value;
+
+if (idx == q.answer) {
+rationaleBox.innerHTML = `<div class="rationale correct">${q.rationales[idx]}</div>`;
+} else {
+rationaleBox.innerHTML = `<div class="rationale incorrect">${q.rationales[idx]}</div>`;
+}
+nextBtn.classList.remove("hidden");
+}
+
+function nextQuestion() {
+currentQuestion++;
+if (currentQuestion >= questions.length) {
+endExam();
+} else loadQuestion();
+}
+
+function endExam() {
+clearInterval(timerInterval);
+localStorage.setItem("examLocked", true);
+document.getElementById("examScreen").classList.add("hidden");
+document.getElementById("endScreen").classList.remove("hidden");
+}
+</script>
+
+</body>
+</html>
