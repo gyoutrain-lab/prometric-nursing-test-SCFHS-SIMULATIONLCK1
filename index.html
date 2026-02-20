@@ -1,116 +1,3 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>SCFHS Prometric CBT Exam</title>
-
-<style>
-body {
-  font-family: Arial, sans-serif;
-  background: #f2f4f7;
-  margin: 0;
-}
-.container {
-  max-width: 900px;
-  margin: 30px auto;
-  background: #fff;
-  padding: 25px;
-  border-radius: 6px;
-}
-h1, h2 {
-  text-align: center;
-}
-.hidden { display: none; }
-
-input {
-  width: 100%;
-  padding: 10px;
-  margin: 6px 0;
-  font-size: 16px;
-}
-
-button {
-  padding: 10px 16px;
-  font-size: 16px;
-  cursor: pointer;
-  margin-top: 10px;
-}
-
-.timer {
-  position: fixed;
-  top: 15px;
-  right: 20px;
-  background: #111;
-  color: #0f0;
-  padding: 10px 15px;
-  border-radius: 5px;
-  font-size: 18px;
-}
-
-.option {
-  margin: 8px 0;
-}
-
-.rationale {
-  margin-top: 15px;
-  padding: 12px;
-  border-radius: 5px;
-}
-.correct {
-  background: #e6f7e6;
-  border-left: 5px solid green;
-}
-.incorrect {
-  background: #fdeaea;
-  border-left: 5px solid red;
-}
-.locked {
-  color: red;
-  text-align: center;
-  font-weight: bold;
-}
-</style>
-</head>
-
-<body>
-
-<div class="timer hidden" id="timer">60:00</div>
-
-<!-- REGISTRATION -->
-<div class="container" id="registerScreen">
-<h1>SCFHS Prometric CBT</h1>
-<input id="name" placeholder="Full Name">
-<input id="uid" placeholder="ID Number">
-<input id="email" placeholder="Email">
-<button onclick="register()">Register & Start</button>
-</div>
-
-<!-- LOCKED SCREEN -->
-<div class="container hidden" id="lockedScreen">
-<h2 class="locked">EXAM LOCKED</h2>
-<p style="text-align:center;">
-This exam has already been used.<br>
-Provider approval is required to re-open.
-</p>
-<input id="approvalCode" placeholder="Enter Provider Approval Code">
-<button onclick="unlockExam()">Unlock Exam</button>
-</div>
-
-<!-- EXAM -->
-<div class="container hidden" id="examScreen">
-<h2 id="questionText"></h2>
-<div id="options"></div>
-<button onclick="submitAnswer()">Submit</button>
-<div id="rationaleBox"></div>
-<button class="hidden" id="nextBtn" onclick="nextQuestion()">Next</button>
-</div>
-
-<!-- END -->
-<div class="container hidden" id="endScreen">
-<h2>Exam Completed</h2>
-<p>Your attempt has been recorded and locked.</p>
-</div>
-
 <script>
 /* ================= CONFIG ================= */
 const PROVIDER_CODE = "GYOUTRAIN-APPROVED";
@@ -133,17 +20,21 @@ options: [
 ],
 answer: 0,
 rationales: [
-"Correct. This is acute anaphylaxis. The FIRST action is stopping antigen exposure.",
-"Incorrect. Oral antihistamines act too slowly in life-threatening reactions (NCLEX trap).",
-"Incorrect. Documentation is secondary during an active emergency (STR priority trap).",
-"Incorrect. Slowing still exposes the patient to the allergen (misleading safety trap)."
+"Correct. This is acute anaphylaxis. Stop antigen exposure immediately.",
+"Incorrect. Oral antihistamines are too slow in anaphylaxis (NCLEX trap).",
+"Incorrect. Documentation is secondary in emergencies (STR priority trap).",
+"Incorrect. Slowing the infusion still exposes the patient to the allergen."
 ]
 }
 ];
 
 /* ================= LOGIC ================= */
 function register() {
-if (!name.value || !uid.value || !email.value) {
+const n = name.value.trim();
+const u = uid.value.trim();
+const e = email.value.trim();
+
+if (!n || !u || !e) {
 alert("All fields are required.");
 return;
 }
@@ -158,7 +49,7 @@ startExam();
 }
 
 function unlockExam() {
-if (approvalCode.value !== PROVIDER_CODE) {
+if (approvalCode.value.trim() !== PROVIDER_CODE) {
 alert("Invalid approval code.");
 return;
 }
@@ -207,11 +98,11 @@ if (!selected) return alert("Select an answer.");
 let idx = selected.value;
 let q = questions[current];
 
-if (idx == q.answer) {
-rationaleBox.innerHTML = `<div class="rationale correct">${q.rationales[idx]}</div>`;
-} else {
-rationaleBox.innerHTML = `<div class="rationale incorrect">${q.rationales[idx]}</div>`;
-}
+rationaleBox.innerHTML =
+idx == q.answer
+? `<div class="rationale correct">${q.rationales[idx]}</div>`
+: `<div class="rationale incorrect">${q.rationales[idx]}</div>`;
+
 nextBtn.classList.remove("hidden");
 }
 
@@ -228,7 +119,7 @@ document.getElementById("examScreen").classList.add("hidden");
 document.getElementById("timer").classList.add("hidden");
 document.getElementById("endScreen").classList.remove("hidden");
 }
-</script>
 
-</body>
-</html>
+/* ===== DEV RESET (optional, remove in production) ===== */
+// localStorage.removeItem("SCFHS_LOCKED");
+</script>
