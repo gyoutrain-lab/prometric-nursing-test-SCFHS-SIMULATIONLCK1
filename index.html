@@ -7,26 +7,33 @@
 <style>
 body {
   font-family: Arial, sans-serif;
-  background: #f4f6f8;
+  background: #f2f4f7;
   margin: 0;
-  padding: 0;
 }
-
 .container {
   max-width: 900px;
-  margin: auto;
+  margin: 30px auto;
   background: #fff;
-  padding: 20px;
-  margin-top: 20px;
+  padding: 25px;
   border-radius: 6px;
 }
-
 h1, h2 {
   text-align: center;
 }
+.hidden { display: none; }
 
-.hidden {
-  display: none;
+input {
+  width: 100%;
+  padding: 10px;
+  margin: 6px 0;
+  font-size: 16px;
+}
+
+button {
+  padding: 10px 16px;
+  font-size: 16px;
+  cursor: pointer;
+  margin-top: 10px;
 }
 
 .timer {
@@ -36,15 +43,8 @@ h1, h2 {
   background: #111;
   color: #0f0;
   padding: 10px 15px;
-  font-size: 18px;
   border-radius: 5px;
-}
-
-button {
-  padding: 10px 15px;
-  margin-top: 10px;
-  font-size: 16px;
-  cursor: pointer;
+  font-size: 18px;
 }
 
 .option {
@@ -56,15 +56,18 @@ button {
   padding: 12px;
   border-radius: 5px;
 }
-
 .correct {
-  background: #e7f6e7;
+  background: #e6f7e6;
   border-left: 5px solid green;
 }
-
 .incorrect {
   background: #fdeaea;
   border-left: 5px solid red;
+}
+.locked {
+  color: red;
+  text-align: center;
+  font-weight: bold;
 }
 </style>
 </head>
@@ -73,18 +76,27 @@ button {
 
 <div class="timer hidden" id="timer">60:00</div>
 
+<!-- REGISTRATION -->
 <div class="container" id="registerScreen">
 <h1>SCFHS Prometric CBT</h1>
-<input type="text" id="name" placeholder="Full Name"><br><br>
-<input type="text" id="id" placeholder="ID Number"><br><br>
-<input type="email" id="email" placeholder="Email"><br><br>
-
-<input type="text" id="providerCode" placeholder="Provider Approval Code (if re-opening)">
-<br><br>
-
+<input id="name" placeholder="Full Name">
+<input id="uid" placeholder="ID Number">
+<input id="email" placeholder="Email">
 <button onclick="register()">Register & Start</button>
 </div>
 
+<!-- LOCKED SCREEN -->
+<div class="container hidden" id="lockedScreen">
+<h2 class="locked">EXAM LOCKED</h2>
+<p style="text-align:center;">
+This exam has already been used.<br>
+Provider approval is required to re-open.
+</p>
+<input id="approvalCode" placeholder="Enter Provider Approval Code">
+<button onclick="unlockExam()">Unlock Exam</button>
+</div>
+
+<!-- EXAM -->
 <div class="container hidden" id="examScreen">
 <h2 id="questionText"></h2>
 <div id="options"></div>
@@ -93,52 +105,65 @@ button {
 <button class="hidden" id="nextBtn" onclick="nextQuestion()">Next</button>
 </div>
 
+<!-- END -->
 <div class="container hidden" id="endScreen">
 <h2>Exam Completed</h2>
-<p>Your attempt is now locked.</p>
-<p>To re-open, re-register with provider approval.</p>
+<p>Your attempt has been recorded and locked.</p>
 </div>
 
 <script>
-const PROVIDER_UNLOCK_CODE = "GYOUTRAIN-APPROVED";
-const EXAM_DURATION = 60 * 60;
+/* ================= CONFIG ================= */
+const PROVIDER_CODE = "GYOUTRAIN-APPROVED";
+const EXAM_TIME = 60 * 60;
 
+/* ================= STATE ================= */
+let timeLeft = EXAM_TIME;
 let timerInterval;
-let timeLeft = EXAM_DURATION;
-let currentQuestion = 0;
-let locked = localStorage.getItem("examLocked");
+let current = 0;
 
+/* ================= QUESTIONS ================= */
 const questions = [
 {
-q: "A patient develops sudden hypotension, tachycardia, and wheezing after IV antibiotic administration. What is the priority nursing action?",
+q: "A patient develops hypotension, wheezing, and tachycardia immediately after IV antibiotic administration. What is the PRIORITY nursing action?",
 options: [
 "Stop the infusion immediately",
 "Administer oral antihistamine",
-"Document the reaction",
-"Slow the infusion rate"
+"Document the adverse reaction",
+"Reduce the infusion rate"
 ],
 answer: 0,
 rationales: [
-"Correct. This indicates anaphylaxis. Immediate cessation of the causative agent is priority.",
-"Incorrect. Oral antihistamines are delayed and inappropriate in anaphylaxis (NCLEX trap).",
-"Incorrect. Documentation is important but NOT the priority in an acute emergency (STR trap).",
-"Incorrect. Slowing does not stop antigen exposure (misleading safety trap)."
+"Correct. This is acute anaphylaxis. The FIRST action is stopping antigen exposure.",
+"Incorrect. Oral antihistamines act too slowly in life-threatening reactions (NCLEX trap).",
+"Incorrect. Documentation is secondary during an active emergency (STR priority trap).",
+"Incorrect. Slowing still exposes the patient to the allergen (misleading safety trap)."
 ]
 }
 ];
 
+/* ================= LOGIC ================= */
 function register() {
-if (!name.value || !id.value || !email.value) {
-alert("All fields required");
+if (!name.value || !uid.value || !email.value) {
+alert("All fields are required.");
 return;
 }
 
-if (locked && providerCode.value !== PROVIDER_UNLOCK_CODE) {
-alert("Exam already used. Provider approval required.");
+if (localStorage.getItem("SCFHS_LOCKED")) {
+document.getElementById("registerScreen").classList.add("hidden");
+document.getElementById("lockedScreen").classList.remove("hidden");
 return;
 }
 
-localStorage.removeItem("examLocked");
+startExam();
+}
+
+function unlockExam() {
+if (approvalCode.value !== PROVIDER_CODE) {
+alert("Invalid approval code.");
+return;
+}
+localStorage.removeItem("SCFHS_LOCKED");
+document.getElementById("lockedScreen").classList.add("hidden");
 startExam();
 }
 
@@ -153,34 +178,34 @@ loadQuestion();
 function startTimer() {
 timerInterval = setInterval(() => {
 timeLeft--;
-let min = Math.floor(timeLeft / 60);
-let sec = timeLeft % 60;
-timer.innerText = `${min}:${sec.toString().padStart(2,'0')}`;
+let m = Math.floor(timeLeft / 60);
+let s = timeLeft % 60;
+timer.innerText = `${m}:${s.toString().padStart(2,"0")}`;
 if (timeLeft <= 0) endExam();
 }, 1000);
 }
 
 function loadQuestion() {
-let q = questions[currentQuestion];
+let q = questions[current];
 questionText.innerText = q.q;
 options.innerHTML = "";
 rationaleBox.innerHTML = "";
 nextBtn.classList.add("hidden");
 
-q.options.forEach((opt, i) => {
+q.options.forEach((o,i)=>{
 options.innerHTML += `
 <div class="option">
-<input type="radio" name="opt" value="${i}"> ${opt}
+<input type="radio" name="opt" value="${i}"> ${o}
 </div>`;
 });
 }
 
 function submitAnswer() {
 let selected = document.querySelector('input[name="opt"]:checked');
-if (!selected) return alert("Select an answer");
+if (!selected) return alert("Select an answer.");
 
-let q = questions[currentQuestion];
 let idx = selected.value;
+let q = questions[current];
 
 if (idx == q.answer) {
 rationaleBox.innerHTML = `<div class="rationale correct">${q.rationales[idx]}</div>`;
@@ -191,16 +216,16 @@ nextBtn.classList.remove("hidden");
 }
 
 function nextQuestion() {
-currentQuestion++;
-if (currentQuestion >= questions.length) {
-endExam();
-} else loadQuestion();
+current++;
+if (current >= questions.length) endExam();
+else loadQuestion();
 }
 
 function endExam() {
 clearInterval(timerInterval);
-localStorage.setItem("examLocked", true);
+localStorage.setItem("SCFHS_LOCKED", true);
 document.getElementById("examScreen").classList.add("hidden");
+document.getElementById("timer").classList.add("hidden");
 document.getElementById("endScreen").classList.remove("hidden");
 }
 </script>
