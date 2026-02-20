@@ -1,45 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>SCFHS Prometric CBT</title>
+
+<style>
+body { font-family: Arial, sans-serif; background:#f4f6f8; margin:0; }
+.container { max-width:900px; margin:auto; background:#fff; padding:20px; min-height:100vh; }
+h1,h2 { text-align:center; }
+input,button { width:100%; padding:10px; margin:8px 0; font-size:16px; }
+.option { border:1px solid #ccc; padding:10px; margin:8px 0; cursor:pointer; }
+.option:hover { background:#eef2f5; }
+.option.selected { background:#d9e8ff; }
+.hidden { display:none; }
+.rationale { margin-top:15px; padding:15px; border:1px solid #ccc; background:#fafafa; }
+.correct { border-left:6px solid green; }
+.incorrect { border-left:6px solid red; }
+#timer { font-weight:bold; text-align:right; }
+</style>
+</head>
+
+<body>
+<div class="container">
+
+<!-- REGISTRATION -->
+<div id="registerScreen">
+<h1>SCFHS Prometric CBT</h1>
+<input id="nameInput" placeholder="Full Name">
+<input id="idInput" placeholder="Candidate ID">
+<input id="emailInput" placeholder="Email">
+<button onclick="register()">Register & Start</button>
+</div>
+
+<!-- LOCKED -->
+<div id="lockedScreen" class="hidden">
+<h2>Exam Locked</h2>
+<p>This exam has already been used.</p>
+<input id="approvalInput" placeholder="Provider Approval Code">
+<button onclick="unlockExam()">Unlock Exam</button>
+</div>
+
+<!-- EXAM -->
+<div id="examScreen" class="hidden">
+<div id="timer">Time: 60:00</div>
+<h2 id="qCounter"></h2>
+<p id="questionText"></p>
+<div id="options"></div>
+<button onclick="submitAnswer()">Submit Answer</button>
+<div id="rationaleBox" class="rationale hidden"></div>
+<button id="nextBtn" class="hidden" onclick="nextQuestion()">Next Question</button>
+</div>
+
+<!-- END -->
+<div id="endScreen" class="hidden">
+<h1>Exam Completed</h1>
+<p>Your attempt has been recorded.</p>
+</div>
+
+</div>
+
 <script>
 /* ================= CONFIG ================= */
+const EXAM_TIME = 60 * 60; // 60 minutes
 const PROVIDER_CODE = "GYOUTRAIN-APPROVED";
-const EXAM_TIME = 60 * 60;
-
-/* ================= STATE ================= */
-let timeLeft = EXAM_TIME;
-let timerInterval;
-let current = 0;
 
 /* ================= QUESTIONS ================= */
 const questions = [
 {
-q: "A patient develops hypotension, wheezing, and tachycardia immediately after IV antibiotic administration. What is the PRIORITY nursing action?",
+q: "A patient develops wheezing, hypotension, and urticaria after IV antibiotic administration. What is the PRIORITY action?",
 options: [
 "Stop the infusion immediately",
-"Administer oral antihistamine",
-"Document the adverse reaction",
-"Reduce the infusion rate"
+"Give oral antihistamine",
+"Document the reaction",
+"Slow the infusion rate"
 ],
-answer: 0,
-rationales: [
-"Correct. This is acute anaphylaxis. Stop antigen exposure immediately.",
-"Incorrect. Oral antihistamines are too slow in anaphylaxis (NCLEX trap).",
-"Incorrect. Documentation is secondary in emergencies (STR priority trap).",
-"Incorrect. Slowing the infusion still exposes the patient to the allergen."
+correct: 0,
+rationale: [
+"Correct (SCFHS). Immediate cessation prevents further antigen exposure.",
+"Incorrect (NCLEX trap). Oral antihistamines act too slowly.",
+"Incorrect (STR delay). Documentation comes after stabilization.",
+"Incorrect (Misleading). Slowing still exposes the patient."
 ]
 }
 ];
 
-/* ================= LOGIC ================= */
-function register() {
-const n = name.value.trim();
-const u = uid.value.trim();
-const e = email.value.trim();
+/* ================= STATE ================= */
+let current = 0;
+let selected = null;
+let timeLeft = EXAM_TIME;
+let timer;
 
-if (!n || !u || !e) {
+/* ================= REGISTRATION ================= */
+function register() {
+const n = document.getElementById("nameInput").value.trim();
+const i = document.getElementById("idInput").value.trim();
+const e = document.getElementById("emailInput").value.trim();
+
+if (!n || !i || !e) {
 alert("All fields are required.");
 return;
 }
 
-if (localStorage.getItem("SCFHS_LOCKED")) {
+if (localStorage.getItem("SCFHS_USED")) {
 document.getElementById("registerScreen").classList.add("hidden");
 document.getElementById("lockedScreen").classList.remove("hidden");
 return;
@@ -48,62 +110,79 @@ return;
 startExam();
 }
 
+/* ================= UNLOCK ================= */
 function unlockExam() {
-if (approvalCode.value.trim() !== PROVIDER_CODE) {
+const code = document.getElementById("approvalInput").value.trim();
+if (code !== PROVIDER_CODE) {
 alert("Invalid approval code.");
 return;
 }
-localStorage.removeItem("SCFHS_LOCKED");
+localStorage.removeItem("SCFHS_USED");
 document.getElementById("lockedScreen").classList.add("hidden");
 startExam();
 }
 
+/* ================= EXAM ================= */
 function startExam() {
 document.getElementById("registerScreen").classList.add("hidden");
 document.getElementById("examScreen").classList.remove("hidden");
-document.getElementById("timer").classList.remove("hidden");
 startTimer();
 loadQuestion();
 }
 
 function startTimer() {
-timerInterval = setInterval(() => {
+timer = setInterval(() => {
 timeLeft--;
 let m = Math.floor(timeLeft / 60);
 let s = timeLeft % 60;
-timer.innerText = `${m}:${s.toString().padStart(2,"0")}`;
+document.getElementById("timer").innerText =
+`Time: ${m}:${s.toString().padStart(2,"0")}`;
 if (timeLeft <= 0) endExam();
 }, 1000);
 }
 
 function loadQuestion() {
-let q = questions[current];
-questionText.innerText = q.q;
-options.innerHTML = "";
-rationaleBox.innerHTML = "";
-nextBtn.classList.add("hidden");
+selected = null;
+document.getElementById("rationaleBox").classList.add("hidden");
+document.getElementById("nextBtn").classList.add("hidden");
 
-q.options.forEach((o,i)=>{
-options.innerHTML += `
-<div class="option">
-<input type="radio" name="opt" value="${i}"> ${o}
-</div>`;
+let q = questions[current];
+document.getElementById("qCounter").innerText =
+`Question ${current + 1} of ${questions.length}`;
+document.getElementById("questionText").innerText = q.q;
+
+let optDiv = document.getElementById("options");
+optDiv.innerHTML = "";
+
+q.options.forEach((o,idx)=>{
+let div = document.createElement("div");
+div.className = "option";
+div.innerText = o;
+div.onclick = () => selectOption(div, idx);
+optDiv.appendChild(div);
 });
 }
 
+function selectOption(div, idx) {
+document.querySelectorAll(".option").forEach(o=>o.classList.remove("selected"));
+div.classList.add("selected");
+selected = idx;
+}
+
 function submitAnswer() {
-let selected = document.querySelector('input[name="opt"]:checked');
-if (!selected) return alert("Select an answer.");
+if (selected === null) {
+alert("Select an answer.");
+return;
+}
 
-let idx = selected.value;
 let q = questions[current];
+let box = document.getElementById("rationaleBox");
+box.classList.remove("hidden");
 
-rationaleBox.innerHTML =
-idx == q.answer
-? `<div class="rationale correct">${q.rationales[idx]}</div>`
-: `<div class="rationale incorrect">${q.rationales[idx]}</div>`;
+box.className = "rationale " + (selected === q.correct ? "correct" : "incorrect");
+box.innerText = q.rationale[selected];
 
-nextBtn.classList.remove("hidden");
+document.getElementById("nextBtn").classList.remove("hidden");
 }
 
 function nextQuestion() {
@@ -112,14 +191,17 @@ if (current >= questions.length) endExam();
 else loadQuestion();
 }
 
+/* ================= END ================= */
 function endExam() {
-clearInterval(timerInterval);
-localStorage.setItem("SCFHS_LOCKED", true);
+clearInterval(timer);
+localStorage.setItem("SCFHS_USED", "true");
 document.getElementById("examScreen").classList.add("hidden");
-document.getElementById("timer").classList.add("hidden");
 document.getElementById("endScreen").classList.remove("hidden");
 }
 
-/* ===== DEV RESET (optional, remove in production) ===== */
-// localStorage.removeItem("SCFHS_LOCKED");
+/* ===== DEV RESET (REMOVE IN PRODUCTION) ===== */
+// localStorage.removeItem("SCFHS_USED");
 </script>
+
+</body>
+</html>
