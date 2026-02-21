@@ -2,13 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>SCFHS Prometric CBT</title>
-
+<title>SCFHS Prometric CBT - Single File</title>
 <style>
-body { font-family: Arial, sans-serif; background:#f4f6f8; margin:0; }
-.container { max-width:900px; margin:auto; background:#fff; padding:20px; min-height:100vh; }
+body { font-family: Arial,sans-serif; background:#f4f6f8; margin:0; }
+.container { max-width:900px; margin:30px auto; background:#fff; padding:20px; border-radius:6px; }
 h1,h2 { text-align:center; }
-input,button { width:100%; padding:10px; margin:8px 0; font-size:16px; }
+input,button { width:100%; padding:10px; margin:6px 0; font-size:16px; }
 .option { border:1px solid #ccc; padding:10px; margin:8px 0; cursor:pointer; }
 .option:hover { background:#eef2f5; }
 .option.selected { background:#d9e8ff; }
@@ -17,13 +16,14 @@ input,button { width:100%; padding:10px; margin:8px 0; font-size:16px; }
 .correct { border-left:6px solid green; }
 .incorrect { border-left:6px solid red; }
 #timer { font-weight:bold; text-align:right; }
+.locked { color:red; font-weight:bold; text-align:center; margin-bottom:10px; }
 </style>
 </head>
-
 <body>
+
 <div class="container">
 
-<!-- REGISTRATION -->
+<!-- Registration -->
 <div id="registerScreen">
 <h1>SCFHS Prometric CBT</h1>
 <input id="nameInput" placeholder="Full Name">
@@ -32,15 +32,15 @@ input,button { width:100%; padding:10px; margin:8px 0; font-size:16px; }
 <button onclick="register()">Register & Start</button>
 </div>
 
-<!-- LOCKED -->
+<!-- Locked Screen -->
 <div id="lockedScreen" class="hidden">
-<h2>Exam Locked</h2>
-<p>This exam has already been used.</p>
+<h2 class="locked">Exam Locked</h2>
+<p style="text-align:center;">This exam has already been used. Provider approval required to unlock.</p>
 <input id="approvalInput" placeholder="Provider Approval Code">
 <button onclick="unlockExam()">Unlock Exam</button>
 </div>
 
-<!-- EXAM -->
+<!-- Exam Screen -->
 <div id="examScreen" class="hidden">
 <div id="timer">Time: 60:00</div>
 <h2 id="qCounter"></h2>
@@ -51,10 +51,10 @@ input,button { width:100%; padding:10px; margin:8px 0; font-size:16px; }
 <button id="nextBtn" class="hidden" onclick="nextQuestion()">Next Question</button>
 </div>
 
-<!-- END -->
+<!-- End Screen -->
 <div id="endScreen" class="hidden">
 <h1>Exam Completed</h1>
-<p>Your attempt has been recorded.</p>
+<p>Your attempt has been recorded. Exam is now locked.</p>
 </div>
 
 </div>
@@ -67,7 +67,7 @@ const PROVIDER_CODE = "GYOUTRAIN-APPROVED";
 /* ================= QUESTIONS ================= */
 const questions = [
 {
-q: "A patient develops wheezing, hypotension, and urticaria after IV antibiotic administration. What is the PRIORITY action?",
+q: "A patient develops hypotension and wheezing immediately after IV antibiotics. What is the PRIORITY nursing action?",
 options: [
 "Stop the infusion immediately",
 "Give oral antihistamine",
@@ -76,10 +76,10 @@ options: [
 ],
 correct: 0,
 rationale: [
-"Correct (SCFHS). Immediate cessation prevents further antigen exposure.",
-"Incorrect (NCLEX trap). Oral antihistamines act too slowly.",
-"Incorrect (STR delay). Documentation comes after stabilization.",
-"Incorrect (Misleading). Slowing still exposes the patient."
+"Correct (SCFHS). Stop infusion immediately to prevent further harm.",
+"Incorrect (NCLEX trap). Oral antihistamines act too slowly in emergencies.",
+"Incorrect (STR). Documentation comes after patient safety.",
+"Incorrect (Misleading). Slowing the infusion still exposes the patient to allergen."
 ]
 }
 ];
@@ -89,119 +89,113 @@ let current = 0;
 let selected = null;
 let timeLeft = EXAM_TIME;
 let timer;
+let candidateKey = ""; // Unique key per candidate
 
 /* ================= REGISTRATION ================= */
 function register() {
-const n = document.getElementById("nameInput").value.trim();
-const i = document.getElementById("idInput").value.trim();
-const e = document.getElementById("emailInput").value.trim();
+  const name = document.getElementById("nameInput").value.trim();
+  const id = document.getElementById("idInput").value.trim();
+  const email = document.getElementById("emailInput").value.trim();
 
-if (!n || !i || !e) {
-alert("All fields are required.");
-return;
-}
+  if (!name || !id || !email) {
+    alert("All fields are required.");
+    return;
+  }
 
-if (localStorage.getItem("SCFHS_USED")) {
-document.getElementById("registerScreen").classList.add("hidden");
-document.getElementById("lockedScreen").classList.remove("hidden");
-return;
-}
+  candidateKey = `SCFHS_LOCK_${id}_${email}`;
 
-startExam();
+  if (localStorage.getItem(candidateKey)) {
+    document.getElementById("registerScreen").classList.add("hidden");
+    document.getElementById("lockedScreen").classList.remove("hidden");
+    return;
+  }
+
+  startExam();
 }
 
 /* ================= UNLOCK ================= */
 function unlockExam() {
-const code = document.getElementById("approvalInput").value.trim();
-if (code !== PROVIDER_CODE) {
-alert("Invalid approval code.");
-return;
-}
-localStorage.removeItem("SCFHS_USED");
-document.getElementById("lockedScreen").classList.add("hidden");
-startExam();
+  const code = document.getElementById("approvalInput").value.trim();
+  if (code !== PROVIDER_CODE) {
+    alert("Invalid approval code.");
+    return;
+  }
+  localStorage.removeItem(candidateKey); // Unlock
+  document.getElementById("lockedScreen").classList.add("hidden");
+  startExam();
 }
 
 /* ================= EXAM ================= */
 function startExam() {
-document.getElementById("registerScreen").classList.add("hidden");
-document.getElementById("examScreen").classList.remove("hidden");
-startTimer();
-loadQuestion();
+  document.getElementById("registerScreen").classList.add("hidden");
+  document.getElementById("examScreen").classList.remove("hidden");
+  startTimer();
+  loadQuestion();
 }
 
 function startTimer() {
-timer = setInterval(() => {
-timeLeft--;
-let m = Math.floor(timeLeft / 60);
-let s = timeLeft % 60;
-document.getElementById("timer").innerText =
-`Time: ${m}:${s.toString().padStart(2,"0")}`;
-if (timeLeft <= 0) endExam();
-}, 1000);
+  timer = setInterval(() => {
+    timeLeft--;
+    let m = Math.floor(timeLeft / 60);
+    let s = timeLeft % 60;
+    document.getElementById("timer").innerText = `Time: ${m}:${s.toString().padStart(2,"0")}`;
+    if (timeLeft <= 0) endExam();
+  },1000);
 }
 
 function loadQuestion() {
-selected = null;
-document.getElementById("rationaleBox").classList.add("hidden");
-document.getElementById("nextBtn").classList.add("hidden");
+  selected = null;
+  document.getElementById("rationaleBox").classList.add("hidden");
+  document.getElementById("nextBtn").classList.add("hidden");
 
-let q = questions[current];
-document.getElementById("qCounter").innerText =
-`Question ${current + 1} of ${questions.length}`;
-document.getElementById("questionText").innerText = q.q;
+  let q = questions[current];
+  document.getElementById("qCounter").innerText = `Question ${current+1} of ${questions.length}`;
+  document.getElementById("questionText").innerText = q.q;
 
-let optDiv = document.getElementById("options");
-optDiv.innerHTML = "";
-
-q.options.forEach((o,idx)=>{
-let div = document.createElement("div");
-div.className = "option";
-div.innerText = o;
-div.onclick = () => selectOption(div, idx);
-optDiv.appendChild(div);
-});
+  let optDiv = document.getElementById("options");
+  optDiv.innerHTML = "";
+  q.options.forEach((o,idx)=>{
+    let div = document.createElement("div");
+    div.className = "option";
+    div.innerText = o;
+    div.onclick = () => selectOption(div, idx);
+    optDiv.appendChild(div);
+  });
 }
 
 function selectOption(div, idx) {
-document.querySelectorAll(".option").forEach(o=>o.classList.remove("selected"));
-div.classList.add("selected");
-selected = idx;
+  document.querySelectorAll(".option").forEach(o=>o.classList.remove("selected"));
+  div.classList.add("selected");
+  selected = idx;
 }
 
 function submitAnswer() {
-if (selected === null) {
-alert("Select an answer.");
-return;
-}
-
-let q = questions[current];
-let box = document.getElementById("rationaleBox");
-box.classList.remove("hidden");
-
-box.className = "rationale " + (selected === q.correct ? "correct" : "incorrect");
-box.innerText = q.rationale[selected];
-
-document.getElementById("nextBtn").classList.remove("hidden");
+  if (selected === null) { alert("Select an answer."); return; }
+  let q = questions[current];
+  let box = document.getElementById("rationaleBox");
+  box.classList.remove("hidden");
+  box.className = "rationale " + (selected===q.correct?"correct":"incorrect");
+  box.innerText = q.rationale[selected];
+  document.getElementById("nextBtn").classList.remove("hidden");
 }
 
 function nextQuestion() {
-current++;
-if (current >= questions.length) endExam();
-else loadQuestion();
+  current++;
+  if (current >= questions.length) endExam();
+  else loadQuestion();
 }
 
-/* ================= END ================= */
+/* ================= END EXAM ================= */
 function endExam() {
-clearInterval(timer);
-localStorage.setItem("SCFHS_USED", "true");
-document.getElementById("examScreen").classList.add("hidden");
-document.getElementById("endScreen").classList.remove("hidden");
+  clearInterval(timer);
+  localStorage.setItem(candidateKey,"locked");
+  document.getElementById("examScreen").classList.add("hidden");
+  document.getElementById("timer").classList.add("hidden");
+  document.getElementById("endScreen").classList.remove("hidden");
 }
 
-/* ===== DEV RESET (REMOVE IN PRODUCTION) ===== */
-// localStorage.removeItem("SCFHS_USED");
+/* ===== DEV RESET ===== */
+// localStorage.removeItem(candidateKey); // uncomment for testing
 </script>
-
 </body>
 </html>
