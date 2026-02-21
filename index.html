@@ -2,200 +2,265 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>SCFHS Prometric CBT - Single File</title>
+<title>SCFHS Pass Prediction Engine</title>
 <style>
-body { font-family: Arial,sans-serif; background:#f4f6f8; margin:0; }
-.container { max-width:900px; margin:30px auto; background:#fff; padding:20px; border-radius:6px; }
-h1,h2 { text-align:center; }
-input,button { width:100%; padding:10px; margin:6px 0; font-size:16px; }
-.option { border:1px solid #ccc; padding:10px; margin:8px 0; cursor:pointer; }
-.option:hover { background:#eef2f5; }
-.option.selected { background:#d9e8ff; }
-.hidden { display:none; }
-.rationale { margin-top:15px; padding:15px; border:1px solid #ccc; background:#fafafa; }
-.correct { border-left:6px solid green; }
-.incorrect { border-left:6px solid red; }
-#timer { font-weight:bold; text-align:right; }
-.locked { color:red; font-weight:bold; text-align:center; margin-bottom:10px; }
+body { font-family: Arial, sans-serif; background: #f4f6f8; margin: 0; }
+.container { max-width: 900px; margin: auto; background: #fff; padding: 20px; min-height: 100vh; }
+h1, h2 { text-align: center; }
+.hidden { display: none; }
+input, button { padding: 10px; margin: 6px 0; width: 100%; font-size: 16px; }
+#timer { text-align: center; font-weight: bold; font-size: 18px; margin-bottom: 10px; }
+.option { border: 1px solid #ccc; padding: 10px; margin-top: 8px; cursor: pointer; }
+.option:hover { background: #eef2f5; }
+.option.selected { background: #d9e8ff; }
+.option.correct { border-left: 6px solid green; }
+.option.wrong { border-left: 6px solid red; }
+.rationale { background: #f9fafb; border: 1px solid #ccc; padding: 15px; margin-top: 15px; }
+.report { background: #f1f5f9; padding: 20px; margin-top: 20px; }
 </style>
 </head>
-<body>
 
+<body>
 <div class="container">
 
-<!-- Registration -->
+<!-- REGISTRATION SCREEN -->
 <div id="registerScreen">
-<h1>SCFHS Prometric CBT</h1>
-<input id="nameInput" placeholder="Full Name">
-<input id="idInput" placeholder="Candidate ID">
-<input id="emailInput" placeholder="Email">
-<button onclick="register()">Register & Start</button>
+  <h1>SCFHS Prometric CBT</h1>
+  <input type="text" id="candidateName" placeholder="Full Name">
+  <input type="text" id="candidateID" placeholder="Candidate ID">
+  <input type="text" id="candidateEmail" placeholder="Email">
+  <button onclick="registerCandidate()">Register & Start</button>
 </div>
 
-<!-- Locked Screen -->
+<!-- LOCKED SCREEN -->
 <div id="lockedScreen" class="hidden">
-<h2 class="locked">Exam Locked</h2>
-<p style="text-align:center;">This exam has already been used. Provider approval required to unlock.</p>
-<input id="approvalInput" placeholder="Provider Approval Code">
-<button onclick="unlockExam()">Unlock Exam</button>
+  <h2>Exam Locked</h2>
+  <p>This exam has already been used. Provider approval required to unlock.</p>
+  <input type="text" id="approvalInput" placeholder="Provider Approval Code">
+  <button onclick="unlockExam()">Unlock Exam</button>
 </div>
 
-<!-- Exam Screen -->
+<!-- EXAM SCREEN -->
 <div id="examScreen" class="hidden">
-<div id="timer">Time: 60:00</div>
-<h2 id="qCounter"></h2>
-<p id="questionText"></p>
-<div id="options"></div>
-<button onclick="submitAnswer()">Submit Answer</button>
-<div id="rationaleBox" class="rationale hidden"></div>
-<button id="nextBtn" class="hidden" onclick="nextQuestion()">Next Question</button>
+  <h2 id="qCounter"></h2>
+  <div id="timer">Time Remaining: 20:00</div>
+  <p id="questionText"></p>
+  <div id="options"></div>
+  <button onclick="submitAnswer()">Submit Answer</button>
+  <div id="rationaleBox" class="rationale hidden"></div>
+  <button id="nextBtn" class="hidden" onclick="nextQuestion()">Next Question</button>
 </div>
 
-<!-- End Screen -->
-<div id="endScreen" class="hidden">
-<h1>Exam Completed</h1>
-<p>Your attempt has been recorded. Exam is now locked.</p>
+<!-- RESULT SCREEN -->
+<div id="resultScreen" class="hidden">
+  <h1>PASS PREDICTION RESULT</h1>
+  <div id="finalReport" class="report"></div>
 </div>
 
 </div>
 
 <script>
-/* ================= CONFIG ================= */
-const EXAM_TIME = 60 * 60; // 60 minutes
+// ================= PROVIDER & CANDIDATE LOCK =================
 const PROVIDER_CODE = "GYOUTRAIN-APPROVED";
+let candidateKey = "";
 
-/* ================= QUESTIONS ================= */
+// ================= QUESTIONS =================
 const questions = [
 {
-q: "A patient develops hypotension and wheezing immediately after IV antibiotics. What is the PRIORITY nursing action?",
-options: [
-"Stop the infusion immediately",
-"Give oral antihistamine",
-"Document the reaction",
-"Slow the infusion rate"
-],
-correct: 0,
-rationale: [
-"Correct (SCFHS). Stop infusion immediately to prevent further harm.",
-"Incorrect (NCLEX trap). Oral antihistamines act too slowly in emergencies.",
-"Incorrect (STR). Documentation comes after patient safety.",
-"Incorrect (Misleading). Slowing the infusion still exposes the patient to allergen."
-]
+  q: "A patient states, “I plan to kill myself tonight,” and has access to a firearm. What is the nurse’s PRIORITY action?",
+  options: [
+    { text: "Ensure immediate safety and initiate involuntary hold procedures", tag: "SCFHS" },
+    { text: "Respect the patient’s confidentiality", tag: "SAFE_DELAY" },
+    { text: "Encourage the patient to reconsider", tag: "NCLEX" },
+    { text: "Document the statement and continue assessment", tag: "STR" }
+  ],
+  correctTag: "SCFHS",
+  rationale: {
+    correct: "Expressed suicidal intent with a lethal means represents imminent danger and requires immediate protective action.",
+    distractors: {
+      SAFE_DELAY: "SAFE-DELAY trap: Confidentiality never overrides immediate risk to life.",
+      NCLEX: "NCLEX therapeutic trap: delays action, fails to prioritize safety.",
+      STR: "STR documentation trap: documentation without intervention does not protect."
+    }
+  }
+},
+{
+  q: "A patient with acute psychosis is pacing and threatening staff but has not attempted harm. What is the nurse’s FIRST intervention?",
+  options: [
+    { text: "Use verbal de-escalation techniques", tag: "SCFHS" },
+    { text: "Apply physical restraints immediately", tag: "SAFE_DELAY" },
+    { text: "Administer PRN antipsychotic medication", tag: "NCLEX" },
+    { text: "Call security to restrain the patient", tag: "STR" }
+  ],
+  correctTag: "SCFHS",
+  rationale: {
+    correct: "SCFHS prioritizes the least restrictive intervention before restraints or medication.",
+    distractors: {
+      SAFE_DELAY: "SAFE-DELAY trap: Restraints are last-resort.",
+      NCLEX: "NCLEX trap: Medication-first bypasses de-escalation.",
+      STR: "STR trap: Security escalates agitation."
+    }
+  }
+},
+{
+  q: "A patient expresses passive death wishes but denies intent or plan. What is the nurse’s BEST action?",
+  options: [
+    { text: "Conduct further suicide risk assessment", tag: "SCFHS" },
+    { text: "Initiate involuntary hold immediately", tag: "SAFE_DELAY" },
+    { text: "Dismiss the statement as attention-seeking", tag: "NCLEX" },
+    { text: "Document and end the conversation", tag: "STR" }
+  ],
+  correctTag: "SCFHS",
+  rationale: {
+    correct: "When intent is unclear, SCFHS requires further structured risk assessment.",
+    distractors: {
+      SAFE_DELAY: "SAFE-DELAY trap: Hold requires imminent danger.",
+      NCLEX: "NCLEX trap: Dismissal minimizes risk.",
+      STR: "STR trap: Documentation prematurely ends assessment."
+    }
+  }
 }
 ];
 
-/* ================= STATE ================= */
-let current = 0;
-let selected = null;
-let timeLeft = EXAM_TIME;
-let timer;
-let candidateKey = ""; // Unique key per candidate
+// ================= ENGINE =================
+let shuffledQuestions = [];
+let currentIndex = 0;
+let selectedIndex = null;
+let score = { SCFHS:0, NCLEX:0, STR:0, SAFE_DELAY:0 };
 
-/* ================= REGISTRATION ================= */
-function register() {
-  const name = document.getElementById("nameInput").value.trim();
-  const id = document.getElementById("idInput").value.trim();
-  const email = document.getElementById("emailInput").value.trim();
+// ================= TIMER =================
+let totalTime = 20*60;
+let timeLeft = totalTime;
+let timerInterval = null;
 
-  if (!name || !id || !email) {
-    alert("All fields are required.");
-    return;
-  }
-
+// ================= REGISTRATION =================
+function registerCandidate(){
+  const name = document.getElementById("candidateName").value.trim();
+  const id = document.getElementById("candidateID").value.trim();
+  const email = document.getElementById("candidateEmail").value.trim();
+  
+  if(!name || !id || !email){ alert("All fields are required"); return; }
+  
   candidateKey = `SCFHS_LOCK_${id}_${email}`;
-
-  if (localStorage.getItem(candidateKey)) {
+  
+  if(localStorage.getItem(candidateKey)){
     document.getElementById("registerScreen").classList.add("hidden");
     document.getElementById("lockedScreen").classList.remove("hidden");
     return;
   }
-
+  
   startExam();
 }
 
-/* ================= UNLOCK ================= */
-function unlockExam() {
+// ================= UNLOCK =================
+function unlockExam(){
   const code = document.getElementById("approvalInput").value.trim();
-  if (code !== PROVIDER_CODE) {
-    alert("Invalid approval code.");
-    return;
-  }
-  localStorage.removeItem(candidateKey); // Unlock
-  document.getElementById("lockedScreen").classList.add("hidden");
+  if(code !== PROVIDER_CODE){ alert("Invalid approval code"); return; }
+  localStorage.removeItem(candidateKey);
   startExam();
 }
 
-/* ================= EXAM ================= */
-function startExam() {
+// ================= EXAM LOGIC =================
+function startExam(){
+  shuffledQuestions = shuffle(questions).map(q=>({...q, options:shuffle(q.options)}));
   document.getElementById("registerScreen").classList.add("hidden");
+  document.getElementById("lockedScreen").classList.add("hidden");
   document.getElementById("examScreen").classList.remove("hidden");
+  
   startTimer();
   loadQuestion();
 }
 
-function startTimer() {
-  timer = setInterval(() => {
-    timeLeft--;
-    let m = Math.floor(timeLeft / 60);
-    let s = timeLeft % 60;
-    document.getElementById("timer").innerText = `Time: ${m}:${s.toString().padStart(2,"0")}`;
-    if (timeLeft <= 0) endExam();
-  },1000);
-}
+function shuffle(arr){ return [...arr].sort(()=>Math.random()-0.5); }
 
-function loadQuestion() {
-  selected = null;
+function loadQuestion(){
+  selectedIndex = null;
   document.getElementById("rationaleBox").classList.add("hidden");
   document.getElementById("nextBtn").classList.add("hidden");
-
-  let q = questions[current];
-  document.getElementById("qCounter").innerText = `Question ${current+1} of ${questions.length}`;
+  
+  const q = shuffledQuestions[currentIndex];
+  document.getElementById("qCounter").innerText = `Question ${currentIndex+1} of ${shuffledQuestions.length}`;
   document.getElementById("questionText").innerText = q.q;
-
-  let optDiv = document.getElementById("options");
-  optDiv.innerHTML = "";
-  q.options.forEach((o,idx)=>{
-    let div = document.createElement("div");
-    div.className = "option";
-    div.innerText = o;
-    div.onclick = () => selectOption(div, idx);
-    optDiv.appendChild(div);
+  
+  const optionsDiv = document.getElementById("options");
+  optionsDiv.innerHTML = "";
+  q.options.forEach((opt,i)=>{
+    const div = document.createElement("div");
+    div.className="option";
+    div.innerText=opt.text;
+    div.onclick=()=>selectOption(div,i);
+    optionsDiv.appendChild(div);
   });
 }
 
-function selectOption(div, idx) {
+function selectOption(div,index){
   document.querySelectorAll(".option").forEach(o=>o.classList.remove("selected"));
   div.classList.add("selected");
-  selected = idx;
+  selectedIndex=index;
 }
 
-function submitAnswer() {
-  if (selected === null) { alert("Select an answer."); return; }
-  let q = questions[current];
-  let box = document.getElementById("rationaleBox");
-  box.classList.remove("hidden");
-  box.className = "rationale " + (selected===q.correct?"correct":"incorrect");
-  box.innerText = q.rationale[selected];
+function submitAnswer(){
+  if(selectedIndex===null){ alert("Select an option"); return; }
+  const q = shuffledQuestions[currentIndex];
+  const chosen = q.options[selectedIndex];
+  const isCorrect = chosen.tag === q.correctTag;
+  score[chosen.tag]++;
+  
+  document.querySelectorAll(".option").forEach((o,i)=>{
+    if(q.options[i].tag===q.correctTag) o.classList.add("correct");
+    if(i===selectedIndex && !isCorrect) o.classList.add("wrong");
+  });
+  
+  const rationaleBox = document.getElementById("rationaleBox");
+  rationaleBox.classList.remove("hidden");
+  if(isCorrect){
+    rationaleBox.innerHTML=`<b>Correct — SCFHS Decision</b><br><br>${q.rationale.correct}`;
+  }else{
+    rationaleBox.innerHTML=`<b>Incorrect — ${chosen.tag} Distractor</b><br><br>${q.rationale.distractors[chosen.tag]}<hr><b>SCFHS Rationale:</b><br>${q.rationale.correct}`;
+  }
+  
   document.getElementById("nextBtn").classList.remove("hidden");
 }
 
-function nextQuestion() {
-  current++;
-  if (current >= questions.length) endExam();
-  else loadQuestion();
+function nextQuestion(){
+  currentIndex++;
+  currentIndex<shuffledQuestions.length?loadQuestion():showResult();
 }
 
-/* ================= END EXAM ================= */
-function endExam() {
-  clearInterval(timer);
-  localStorage.setItem(candidateKey,"locked");
+// ================= TIMER =================
+function startTimer(){
+  timeLeft=totalTime;
+  updateTimer();
+  timerInterval=setInterval(()=>{
+    timeLeft--;
+    if(timeLeft<=0){ clearInterval(timerInterval); autoEndExam(); }
+    updateTimer();
+  },1000);
+}
+
+function updateTimer(){
+  const m=Math.floor(timeLeft/60);
+  const s=timeLeft%60;
+  document.getElementById("timer").innerText=`Time Remaining: ${m}:${s.toString().padStart(2,"0")}`;
+}
+
+function autoEndExam(){ if(selectedIndex!==null) submitAnswer(); setTimeout(showResult,600); }
+
+function showResult(){
+  clearInterval(timerInterval);
   document.getElementById("examScreen").classList.add("hidden");
-  document.getElementById("timer").classList.add("hidden");
-  document.getElementById("endScreen").classList.remove("hidden");
+  document.getElementById("resultScreen").classList.remove("hidden");
+  
+  const decision = score.SCFHS>=score.NCLEX && score.SCFHS>=score.STR ? "🟢 GO — SCFHS Ready":"🔴 NO-GO — Not SCFHS Ready";
+  
+  document.getElementById("finalReport").innerHTML=`
+    <b>Decision:</b> ${decision}<br><br>
+    <b>SCFHS Alignment:</b> ${score.SCFHS}<br>
+    <b>NCLEX Bias:</b> ${score.NCLEX}<br>
+    <b>STR Bias:</b> ${score.STR}<br>
+    <b>Safe-Delay Bias:</b> ${score.SAFE_DELAY}
+  `;
 }
-
-/* ===== DEV RESET ===== */
-// localStorage.removeItem(candidateKey); // uncomment for testing
 </script>
 </body>
 </html>
